@@ -1,0 +1,1 @@
+SauceDemo – 12 locator strategies completed (page-object version)
