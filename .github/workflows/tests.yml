@@ -38,7 +38,7 @@ jobs:
       # 5. Run pytest with HTML + Allure outputs
       - name: Run tests with pytest
         run: |
-          pytest src/python/seleniumProject/tests \
+          pytest src/seleniumProject/tests \
             --html=reports/report.html --self-contained-html \
             --alluredir=reports/allure-results \
             --junitxml=reports/junit-report.xml
