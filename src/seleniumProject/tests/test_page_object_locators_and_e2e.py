@@ -1,5 +1,6 @@
 import time
 import pytest
+from selenium.common import TimeoutException
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.support.ui import WebDriverWait
@@ -37,9 +38,19 @@ def test_saucedemo_twelve_locators(driver, base_url):
     login_page.set_username("standard_user")
     login_page.set_password("secret_sauce")
     login_page.submit()
+    time.sleep(2)
+
+    try:
+        WebDriverWait(driver, 3).until(EC.alert_is_present())
+        alert = driver.switch_to.alert
+        print(f"Alert detected: {alert.text}")
+        alert.accept()  # or alert.dismiss() to cancel
+        print("Alert accepted")
+    except TimeoutException:
+        print("No alert present")
+
     login_page.screenshot("01_after_login")
 
-    time.sleep(3)
 
     # 4. Add to cart by ID using page object
     product_page.add_backpack_to_cart()
