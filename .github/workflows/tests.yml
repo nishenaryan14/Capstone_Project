@@ -1,4 +1,4 @@
-name: Selenium Tests with Reports
+name: Selenium Tests with Reports (Edge on Ubuntu)
 
 on:
   push:
@@ -7,81 +7,103 @@ on:
 
 jobs:
   test:
-    runs-on: ubuntu-latest   # keep ubuntu runner, even if your dev machine is Windows
+    runs-on: ubuntu-latest
 
     steps:
-      # 1. Checkout repo
+      # 1. Checkout
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # 2. Set up Python
+      # 2. Python
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
 
-      # 3. Install dependencies
-      - name: Install dependencies
+      # 3. Install Microsoft Edge browser
+      - name: Install Microsoft Edge
+        run: |
+          curl https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor > microsoft.gpg
+          sudo install -o root -g root -m 644 microsoft.gpg /etc/apt/trusted.gpg.d/
+          sudo sh -c 'echo "deb [arch=amd64,arm64,armhf] https://packages.microsoft.com/repos/edge stable main" > /etc/apt/sources.list.d/microsoft-edge.list'
+          sudo apt update
+          sudo apt install -y microsoft-edge-stable
+
+      # 4. Download matching Edge WebDriver
+      - name: Install Edge WebDriver
+        run: |
+          EDGE_VERSION=$(microsoft-edge-stable --version | cut -d' ' -f3 | cut -d'.' -f1)
+          DRIVER_URL="https://msedgedriver.azureedge.net/LATEST_RELEASE_${EDGE_VERSION}"
+          DRIVER_VERSION=$(curl -s "${DRIVER_URL}")
+          wget -q "https://msedgedriver.azureedge.net/${DRIVER_VERSION}/edgedriver_linux64.zip"
+          unzip edgedriver_linux64.zip -d $HOME/drivers
+          chmod +x $HOME/drivers/msedgedriver
+          echo "$HOME/drivers" >> $GITHUB_PATH
+          rm edgedriver_linux64.zip
+
+      # 5. Python dependencies
+      - name: Install Python dependencies
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      # 4. Install Allure CLI (direct download instead of apt repo)
+      # 6. Allure CLI
       - name: Install Allure
         run: |
           curl -o allure-2.29.0.tgz -L https://github.com/allure-framework/allure2/releases/download/2.29.0/allure-2.29.0.tgz
-          tar -zxvf allure-2.29.0.tgz
+          tar -xzf allure-2.29.0.tgz
           sudo mv allure-2.29.0 /opt/allure
-          sudo ln -s /opt/allure/bin/allure /usr/bin/allure
+          sudo ln -s /opt/allure/bin/allure /usr/local/bin/allure
           allure --version
 
-      # 5. Run pytest with HTML + Allure outputs
-      - name: Run tests with pytest
+      # 7. Run tests (Edge headless)
+      - name: Run pytest (Edge)
+        env:
+          HEADLESS: true
+          DEFAULT_BROWSER: edge
         run: |
-          pytest src/seleniumProject/tests::test_login_module_hybrid.py \
+          pytest src/seleniumProject/tests \
             --html=reports/report.html --self-contained-html \
             --alluredir=reports/allure-results \
             --junitxml=reports/junit-report.xml
 
-      # 6. Upload HTML report as artifact
+      # 8. Upload artefacts
       - name: Upload HTML report
         uses: actions/upload-artifact@v4
         with:
           name: pytest-html-report
           path: reports/report.html
 
-      # 7. Upload JUnit XML report as artifact
-      - name: Upload JUnit XML report
+      - name: Upload JUnit XML
         uses: actions/upload-artifact@v4
         with:
           name: junit-report
           path: reports/junit-report.xml
 
-      # 8. Generate Allure report
       - name: Generate Allure report
-        run: |
-          allure generate reports/allure-results -o reports/allure-report --clean
+        run: allure generate reports/allure-results -o reports/allure-report --clean
 
-      # 9. Upload Allure report as artifact
       - name: Upload Allure report
         uses: actions/upload-artifact@v4
         with:
           name: allure-report
           path: reports/allure-report
 
-  # Optional: Deploy Allure report to GitHub Pages
+  # 9. Deploy Allure to GitHub Pages
   deploy:
     needs: test
     runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
     steps:
-      - name: Download Allure report artifact
+      - name: Download Allure report
         uses: actions/download-artifact@v4
         with:
           name: allure-report
-          path: site
-
+          path: public
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v4
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: site
+          publish_dir: public
