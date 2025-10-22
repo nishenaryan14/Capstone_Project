@@ -1,3 +1,0 @@
-Page title via JS: Swag Labs
-Page URL via JS: https://www.saucedemo.com/inventory.html
-JS executor + scroll + drop-down completed with screenshots
