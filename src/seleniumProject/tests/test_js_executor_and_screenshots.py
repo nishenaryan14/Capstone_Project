@@ -25,7 +25,7 @@ def test_js_executor_scroll_and_screenshot(tmp_path, driver, base_url):
 
     # Execute JS: return title and scroll
     title = driver.execute_script("return document.title;")
-    assert "nopCommerce" in title
+    assert "Swag Labs" in title
     driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
     driver.execute_script("window.scrollTo(0, 0);")
 
