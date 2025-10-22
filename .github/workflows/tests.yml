@@ -20,23 +20,20 @@ jobs:
         with:
           python-version: '3.11'
 
-      # 3. Install Microsoft Edge browser
-      - name: Install Microsoft Edge
+      # 3. Install Microsoft Edge (pinned version)
+      - name: Install Microsoft Edge 141.0.3537.85
         run: |
-          curl https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor > microsoft.gpg
-          sudo install -o root -g root -m 644 microsoft.gpg /etc/apt/trusted.gpg.d/
-          sudo sh -c 'echo "deb [arch=amd64,arm64,armhf] https://packages.microsoft.com/repos/edge stable main" > /etc/apt/sources.list.d/microsoft-edge.list'
-          sudo apt update
-          sudo apt install -y microsoft-edge-stable
+          curl -o edge.deb -L \
+            "https://packages.microsoft.com/repos/edge/pool/main/m/microsoft-edge-stable/microsoft-edge-stable_141.0.3537.85-1_amd64.deb"
+          sudo dpkg -i edge.deb || sudo apt-get -f install -y
+          rm edge.deb
+          microsoft-edge-stable --version
 
-      # 4. Download matching Edge WebDriver
-      - name: Install Edge WebDriver
+      # 4. Download exact Edge WebDriver (Linux x64)
+      - name: Install Edge WebDriver 141.0.3537.85
         run: |
-          EDGE_VERSION=$(microsoft-edge-stable --version | cut -d' ' -f3 | cut -d'.' -f1)
-          DRIVER_URL="https://msedgedriver.azureedge.net/LATEST_RELEASE_${EDGE_VERSION}"
-          DRIVER_VERSION=$(curl -s "${DRIVER_URL}")
-          wget -q "https://msedgedriver.azureedge.net/${DRIVER_VERSION}/edgedriver_linux64.zip"
-          unzip edgedriver_linux64.zip -d $HOME/drivers
+          wget -q https://msedgedriver.azureedge.net/141.0.3537.85/edgedriver_linux64.zip
+          unzip -q edgedriver_linux64.zip -d $HOME/drivers
           chmod +x $HOME/drivers/msedgedriver
           echo "$HOME/drivers" >> $GITHUB_PATH
           rm edgedriver_linux64.zip
@@ -56,7 +53,7 @@ jobs:
           sudo ln -s /opt/allure/bin/allure /usr/local/bin/allure
           allure --version
 
-      # 7. Run tests (Edge headless)
+      # 7. Run tests (Edge headless, same flags as Jenkins)
       - name: Run pytest (Edge)
         env:
           HEADLESS: true
@@ -64,10 +61,11 @@ jobs:
         run: |
           pytest src/seleniumProject/tests \
             --html=reports/report.html --self-contained-html \
+            --junitxml=reports/junit-report.xml \
             --alluredir=reports/allure-results \
-            --junitxml=reports/junit-report.xml
+            --maxfail=1 --disable-warnings -q
 
-      # 8. Upload artefacts
+      # 8. Upload artefacts (same names Jenkins uses)
       - name: Upload HTML report
         uses: actions/upload-artifact@v4
         with:
